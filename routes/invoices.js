@@ -38,20 +38,36 @@ router.post('/', async (req, res, next) => {
 router.patch('/:id', async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { comp_code, amt, paid, add_date, paid_date } = req.body;
-        const results = await db.query('UPDATE invoices SET comp_code=$1, amt=$2, paid=$3, add_date=$4, paid_date=$5 WHERE id=$6 RETURNING *', [comp_code, amt, paid, add_date, paid_date, id])
-        if (results.rows.length === 0) {
-            throw new ExpressError(`Can't update invoice with id of ${id}`, 404)
+        const { amt, paid } = req.body;
+
+        // Check if the invoice exists
+        const checkInvoice = await db.query('SELECT * FROM invoices WHERE id = $1', [id]);
+        if (checkInvoice.rows.length === 0) {
+            throw new ExpressError(`Can't find invoice with id of ${id}`, 404);
         }
-        return res.send({ invoice: results.rows[0] })
+
+        let paidDate = null;
+
+        if (paid) {
+            // If paying unpaid invoice, set paid_date to today
+            paidDate = new Date().toISOString().split('T')[0];
+        }
+
+        // Update the invoice
+        const results = await db.query(
+            'UPDATE invoices SET amt=$1, paid=$2, paid_date=$3 WHERE id=$4 RETURNING *',
+            [amt, paid, paidDate, id]
+        );
+
+        return res.send({ invoice: results.rows[0] });
     } catch (e) {
-        return next(e)
+        return next(e);
     }
-})
+});
 
 router.delete('/:id', async (req, res, next) => {
     try {
-        const results = db.query('DELETE FROM invoices WHERE id = $1', [req.params.code])
+        const results = db.query('DELETE FROM invoices WHERE id = $1', [req.params.id])
         return res.send({ msg: "DELETED!" })
     } catch (e) {
         return next(e)
