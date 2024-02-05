@@ -5,10 +5,33 @@ const app = require('../app');
 const db = require('../db');
 
 let testCompany;
+
 beforeEach(async () => {
-    const result = await db.query(`INSERT INTO companies (code, name, description) VALUES ('tst', 'Test Company', 'Company for testing') RETURNING  code, name, description`);
+    // Clear companies table
+    // await db.query(`DELETE FROM companies`);
+
+    // // Check if the company with the unique name already exists
+    // const existingCompany = await db.query(`
+    //     SELECT * FROM companies
+    //     WHERE name = 'Unique Test Company'
+    // `);
+
+    // Insert a unique company if it doesn't exist
+    // if (existingCompany.rows.length === 0) {
+    //     const result = await db.query(`
+    //         INSERT INTO companies (code, name, description)
+    //         VALUES ('tst', 'Unique Test Company', 'Company for testing')
+    //         RETURNING code, name, description
+    //     `);
+    //     testCompany = result.rows[0];
+    // }
+    const result = await db.query(`
+            INSERT INTO companies (code, name, description)
+            VALUES ('tst', 'Unique Test Company', 'Company for testing')
+            RETURNING code, name, description
+        `);
     testCompany = result.rows[0];
-})
+});
 
 afterEach(async () => {
     await db.query(`DELETE FROM companies`)

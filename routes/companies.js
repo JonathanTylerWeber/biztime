@@ -18,26 +18,38 @@ router.get('/:code', async (req, res, next) => {
         const { code } = req.params;
         const results = await db.query('SELECT * FROM companies WHERE code = $1', [code]);
 
+        console.log('Results:', results.rows);
+
         if (results.rows.length === 0) {
             throw new ExpressError(`Can't find company with code of ${code}`, 404);
         }
 
-        // Fetch associated industries
-        const industries = await db.query('SELECT industry_code FROM company_industries WHERE company_code = $1', [code]);
-        results.rows[0].industries = industries.rows.map(row => row.industry_code);
+        let company = results.rows[0];
+
+        const industryResults = await db.query(`
+            SELECT i.name
+            FROM industries i
+            JOIN company_industries ci ON i.code = ci.industry_code
+            WHERE ci.company_code = $1
+        `, [code]);
+
+        const industries = industryResults.rows.map(row => row.name);
+
+        company.industries = industries;
 
         return res.json({ company: results.rows[0] });
     } catch (e) {
+        console.error('Error in route:', e);
         return next(e);
     }
 });
 
 router.post('/', async (req, res, next) => {
     try {
-        const { code, name, description, industry_code } = req.body;
+        const { code, name, description } = req.body;
         const newCode = slugify(code);
 
-        const results = await db.query('INSERT INTO companies (code, name, description, industry_code) VALUES ($1, $2, $3, $4) RETURNING *', [newCode, name, description, industry_code]);
+        const results = await db.query('INSERT INTO companies (code, name, description) VALUES ($1, $2, $3) RETURNING *', [newCode, name, description]);
         return res.status(201).json({ company: results.rows[0] });
     } catch (e) {
         return next(e);
@@ -47,8 +59,8 @@ router.post('/', async (req, res, next) => {
 router.patch('/:code', async (req, res, next) => {
     try {
         const { code } = req.params;
-        const { name, description, industry_code } = req.body;
-        const results = await db.query('UPDATE companies SET name=$1, description=$2, industry_code=$3 WHERE code=$4 RETURNING *', [name, description, industry_code, code]);
+        const { name, description } = req.body;
+        const results = await db.query('UPDATE companies SET name=$1, description=$2 WHERE code=$3 RETURNING *', [name, description, code]);
 
         if (results.rows.length === 0) {
             throw new ExpressError(`Can't update company with code of ${code}`, 404);
